@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FBX Scene - Interactive Textures</title>
+    <title>3D Hoodie - Interactive Experience</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Inter', sans-serif; }
         canvas { display: block; }
 
-        /* Glassmorphism UI Container */
-        #ui-layer {
+        /* UI Container */
+        #ui-container {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -19,70 +19,69 @@
             z-index: 100;
         }
 
-        /* Glass Button Base Style */
+        /* Glassmorphism Button Style */
         .glass-btn {
-            padding: 15px 25px;
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 15px;
+            padding: 14px 28px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
             color: white;
-            text-align: center;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-weight: bold;
-            letter-spacing: 1px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            text-transform: uppercase;
-            font-size: 0.8rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            font-size: 0.85rem;
         }
 
         .glass-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
-        /* Pulsing Animation for Order Button */
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(136, 204, 255, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(136, 204, 255, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(136, 204, 255, 0); }
-        }
-
+        /* Pulsing Order Button */
         .order-btn {
-            background: rgba(136, 204, 255, 0.2);
-            border: 1px solid rgba(136, 204, 255, 0.5);
-            animation: pulse 2s infinite;
+            background: rgba(0, 150, 255, 0.15);
+            border: 1px solid rgba(0, 150, 255, 0.4);
+            animation: pulse-glow 2s infinite ease-in-out;
         }
 
-        /* Floating Label from original code */
+        @keyframes pulse-glow {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 150, 255, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 20px 5px rgba(0, 150, 255, 0.2); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 150, 255, 0.4); }
+        }
+
+        /* Label Info */
         #glass-info {
             position: absolute;
             display: none;
-            padding: 15px 25px;
+            padding: 10px 20px;
             background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(8px);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
             text-align: center;
             pointer-events: none;
-            transform: translate(-50%, -100%);
+            transform: translate(-50%, -120%);
             z-index: 50;
         }
     </style>
 </head>
 <body>
     <div id="glass-info">
-        <h2>Object Loaded</h2>
-        <p>Animation Playing</p>
+        <h2 style="margin:0; font-size: 1rem;">Premium Hoodie</h2>
+        <p style="margin:5px 0 0; font-size: 0.75rem; opacity: 0.7;">3D Interactive View</p>
     </div>
 
-    <div id="ui-layer">
-        <div id="switch-tex-btn" class="glass-btn">Switch Style</div>
-        <div id="order-btn" class="glass-btn order-btn">Order on Amazon</div>
+    <div id="ui-container">
+        <button id="tex-switch" class="glass-btn">Switch Color</button>
+        <button id="amazon-btn" class="glass-btn order-btn">Order on Amazon</button>
     </div>
 
     <script type="importmap">
@@ -99,15 +98,14 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 
-        let camera, scene, renderer, controls, mixer, hoodieModel;
-        let currentTextureIndex = 1;
+        let camera, scene, renderer, controls, mixer, hoodie;
         const clock = new THREE.Clock();
         const labelDiv = document.getElementById('glass-info');
         let labelPosition3D = new THREE.Vector3();
 
         const textureLoader = new THREE.TextureLoader();
         
-        // Pre-load textures for smooth switching
+        // Pre-load textures
         const tex1 = textureLoader.load('drag3_diffuse_1001.png');
         const tex2 = textureLoader.load('drag3_diffuse_1002.png');
         const normalTex = textureLoader.load('drag3_normal_1001.png');
@@ -115,102 +113,93 @@
         tex1.colorSpace = THREE.SRGBColorSpace;
         tex2.colorSpace = THREE.SRGBColorSpace;
 
+        let activeTexture = tex1;
+
         init();
         animate();
 
         function init() {
             scene = new THREE.Scene();
 
-            // Lighting
+            // 1. Lights
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
             scene.add(ambientLight);
 
-            const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
-            sunLight.position.set(50, 100, 50);
+            const sunLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            sunLight.position.set(5, 10, 5);
             scene.add(sunLight);
 
-            // Camera
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
-            camera.position.set(200, 200, 500);
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 5000);
+            camera.position.set(200, 200, 400);
 
-            // Renderer
+            // 3. Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             document.body.appendChild(renderer.domElement);
 
-            // Controls
+            // 4. Controls
             controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            // SkySphere
-            const skyGeo = new THREE.SphereGeometry(5000, 32, 32);
-            const skyMat = new THREE.MeshBasicMaterial({ color: 0x222222, side: THREE.BackSide });
-            scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-            // Load FBX
+            // 5. Load Hoodie FBX
             const fbxLoader = new FBXLoader();
-            fbxLoader.load('clothanimation.fbx', (fbx) => {
-                hoodieModel = fbx;
+            fbxLoader.load('clothanimation.fbx', (object) => {
+                hoodie = object;
                 
-                applyTexture(tex1); // Initial texture
+                updateHoodieMaterial(); // Apply initial material settings
 
-                mixer = new THREE.AnimationMixer(fbx);
-                if (fbx.animations.length > 0) {
-                    const action = mixer.clipAction(fbx.animations[0]);
-                    action.play();
+                // Setup Animation
+                mixer = new THREE.AnimationMixer(hoodie);
+                if (hoodie.animations.length > 0) {
+                    mixer.clipAction(hoodie.animations[0]).play();
                 }
 
-                // Auto-Scale and Center
-                const box = new THREE.Box3().setFromObject(fbx);
-                const center = box.getCenter(new THREE.Vector3());
+                // Center & Scale
+                const box = new THREE.Box3().setFromObject(hoodie);
                 const size = box.getSize(new THREE.Vector3());
-                fbx.position.sub(center); 
+                const center = box.getCenter(new THREE.Vector3());
+                hoodie.position.sub(center); 
                 
-                labelPosition3D.set(0, size.y / 1.5, 0); 
+                labelPosition3D.set(0, size.y / 2, 0); 
                 
                 const maxDim = Math.max(size.x, size.y, size.z);
-                camera.position.set(maxDim, maxDim, maxDim * 1.5);
+                camera.position.set(0, maxDim, maxDim * 1.5);
                 controls.target.set(0, 0, 0);
-                controls.update();
 
-                scene.add(fbx);
+                scene.add(hoodie);
                 labelDiv.style.display = 'block';
             });
 
-            // Button Event Listeners
-            document.getElementById('switch-tex-btn').addEventListener('click', switchTexture);
-            document.getElementById('order-btn').addEventListener('click', () => {
+            // 6. Button Logic
+            document.getElementById('tex-switch').addEventListener('click', () => {
+                activeTexture = (activeTexture === tex1) ? tex2 : tex1;
+                updateHoodieMaterial();
+            });
+
+            document.getElementById('amazon-btn').addEventListener('click', () => {
                 window.open('https://www.amazon.com', '_blank');
             });
 
             window.addEventListener('resize', onWindowResize);
         }
 
-        function applyTexture(texture) {
-            if (!hoodieModel) return;
-            hoodieModel.traverse((child) => {
+        // --- THE FIX: DoubleSide prevents "disappearing" inside parts ---
+        function updateHoodieMaterial() {
+            if (!hoodie) return;
+            hoodie.traverse((child) => {
                 if (child.isMesh) {
                     child.material = new THREE.MeshStandardMaterial({
-                        map: texture,
+                        map: activeTexture,
                         normalMap: normalTex,
-                        roughness: 0.6,
+                        side: THREE.DoubleSide, // Crucial: Renders both sides of the mesh
+                        roughness: 0.7,
                         metalness: 0.1
                     });
                 }
             });
-        }
-
-        function switchTexture() {
-            if (currentTextureIndex === 1) {
-                applyTexture(tex2);
-                currentTextureIndex = 2;
-            } else {
-                applyTexture(tex1);
-                currentTextureIndex = 1;
-            }
-            console.log("Texture switched to: " + currentTextureIndex);
         }
 
         function onWindowResize() {
@@ -219,24 +208,27 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        function updateLabel() {
-            const vector = labelPosition3D.clone();
-            vector.project(camera);
-            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-            const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
-            labelDiv.style.left = `${x}px`;
-            labelDiv.style.top = `${y}px`;
-            labelDiv.style.opacity = vector.z > 1 ? 0 : 1;
-        }
-
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
             if (mixer) mixer.update(delta);
             controls.update();
-            updateLabel();
+
+            // Update floating label position
+            if (hoodie) {
+                const vector = labelPosition3D.clone();
+                vector.project(camera);
+                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (vector.y * -0.5 + 0.5) * window.innerHeight;
+                labelDiv.style.left = `${x}px`;
+                labelDiv.style.top = `${y}px`;
+            }
+
             renderer.render(scene, camera);
         }
     </script>
 </body>
 </html>
+
+<!DOCTYPE html>
+<html lang="en">
